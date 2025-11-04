@@ -6,6 +6,7 @@ from streamlit_folium import st_folium
 from datetime import datetime
 
 # Open-Meteo API URL
+# 404 오류 방지를 위해 URL을 다시 확인합니다.
 REVERSE_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/reverse"
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 
@@ -64,20 +65,23 @@ if st.session_state.clicked_location:
     ).add_to(m)
 
 # 3. Streamlit-Folium으로 지도 렌더링 및 클릭 데이터 받기
-map_data = st_folium(m, width="100%", height=500)
+map_data = st_folium(m, width="100%", height=500, key="folium_map", returned_objects=[])
 
 # 4. 지도 클릭 이벤트 처리
-if map_data and map_data["last_clicked"]:
+# map_data가 None이 아니고, "last_clicked" 키가 있는지 확인
+if map_data and map_data.get("last_clicked"):
     lat = map_data["last_clicked"]["lat"]
     lon = map_data["last_clicked"]["lng"]
     
     # 세션 상태 업데이트 (클릭한 위치로 중심 이동 및 줌)
-    st.session_state.center = [lat, lon]
-    st.session_state.zoom = 10
-    st.session_state.clicked_location = [lat, lon]
-    
-    # 페이지를 새로고침하여 지도에 마커를 즉시 반영
-    st.rerun()
+    # 클릭한 위치가 이전과 다를 경우에만 rerun
+    if st.session_state.clicked_location != [lat, lon]:
+        st.session_state.center = [lat, lon]
+        st.session_state.zoom = 10
+        st.session_state.clicked_location = [lat, lon]
+        
+        # 페이지를 새로고침하여 지도에 마커를 즉시 반영
+        st.rerun()
 
 # 5. 날씨 정보 표시 (클릭된 위치가 있을 경우)
 if st.session_state.clicked_location:
@@ -87,17 +91,21 @@ if st.session_state.clicked_location:
         try:
             # 5-1. 위도/경도 -> 지역 이름 변환 (Reverse Geocoding)
             geo_params = {"latitude": lat, "longitude": lon, "format": "json"}
+            
+            # 여기서 requests.get이 REVERSE_GEOCODING_URL을 사용합니다.
             geo_response = requests.get(REVERSE_GEOCODING_URL, params=geo_params)
-            geo_response.raise_for_status()
+            geo_response.raise_for_status() # 404가 발생한 지점
             geo_data = geo_response.json()
             
-            # API 응답에서 지역 이름 추출 (예: 'name', 'locality', 'plus_code' 등)
+            # API 응답에서 지역 이름 추출
             location_name = geo_data.get('display_name', f"위도: {lat:.2f}, 경도: {lon:.2f}")
-            if 'address' in geo_data:
+            if 'address' in geo_data and geo_data['address']:
                 # 주소에서 구, 시, 도 순서로 이름 찾기
-                location_name = geo_data['address'].get('city_district', 
-                                  geo_data['address'].get('city', 
-                                    geo_data['address'].get('state', location_name)))
+                addr = geo_data['address']
+                location_name = addr.get('city_district', 
+                                  addr.get('city', 
+                                    addr.get('state', 
+                                      addr.get('country', location_name))))
 
             st.subheader(f"📍 {location_name}의 날씨")
 
@@ -140,9 +148,10 @@ if st.session_state.clicked_location:
                     st.write(f"{max_temp:.0f}° / {min_temp:.0f}°")
 
         except requests.exceptions.RequestException as e:
+            # 404 오류가 여기에 해당됩니다.
             st.error(f"API 호출 중 오류가 발생했습니다: {e}")
         except Exception as e:
-            st.error(f"오류가 발생했습니다: {e}")
+            st.error(f"알 수 없는 오류가 발생했습니다: {e}")
 
 else:
     st.info("지도를 클릭하여 날씨를 확인할 위치를 선택해 주세요.")
