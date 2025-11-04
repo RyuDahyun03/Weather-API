@@ -6,8 +6,8 @@ from streamlit_folium import st_folium
 from datetime import datetime
 
 # Open-Meteo API URL
-# 404 오류 방지를 위해 URL을 다시 확인합니다.
-REVERSE_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/reverse"
+# 404 오류가 발생하는 Open-Meteo reverse geocoding 대신 Nominatim API를 사용
+REVERSE_GEOCODING_URL = "https://nominatim.openstreetmap.org/reverse"
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 
 def get_weather_info(code):
@@ -91,10 +91,14 @@ if st.session_state.clicked_location:
     with st.spinner("날씨 정보를 가져오는 중..."):
         try:
             # 5-1. 위도/경도 -> 지역 이름 변환 (Reverse Geocoding)
-            geo_params = {"latitude": lat, "longitude": lon, "format": "json"}
+            # Nominatim API에 맞게 파라미터 이름 변경 (latitude -> lat, longitude -> lon)
+            geo_params = {"lat": lat, "lon": lon, "format": "json"}
+            
+            # Nominatim은 User-Agent 헤더가 필요합니다.
+            headers = {"User-Agent": "Streamlit-Weather-App-Test"}
             
             # 여기서 requests.get이 REVERSE_GEOCODING_URL을 사용합니다.
-            geo_response = requests.get(REVERSE_GEOCODING_URL, params=geo_params)
+            geo_response = requests.get(REVERSE_GEOCODING_URL, params=geo_params, headers=headers)
             geo_response.raise_for_status() # 404가 발생한 지점
             geo_data = geo_response.json()
             
@@ -156,5 +160,6 @@ if st.session_state.clicked_location:
 
 else:
     st.info("지도를 클릭하여 날씨를 확인할 위치를 선택해 주세요.")
+
 
 
