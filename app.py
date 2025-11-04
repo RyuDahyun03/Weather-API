@@ -65,7 +65,8 @@ if st.session_state.clicked_location:
     ).add_to(m)
 
 # 3. Streamlit-Folium으로 지도 렌더링 및 클릭 데이터 받기
-map_data = st_folium(m, width="100%", height=500, key="folium_map", returned_objects=[])
+# returned_objects=[] 파라미터를 제거하여 last_clicked가 기본으로 반환되도록 수정
+map_data = st_folium(m, width="100%", height=500, key="folium_map")
 
 # 4. 지도 클릭 이벤트 처리
 # map_data가 None이 아니고, "last_clicked" 키가 있는지 확인
@@ -155,4 +156,5 @@ if st.session_state.clicked_location:
 
 else:
     st.info("지도를 클릭하여 날씨를 확인할 위치를 선택해 주세요.")
+
 
